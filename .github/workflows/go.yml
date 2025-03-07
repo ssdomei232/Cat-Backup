@@ -1,0 +1,135 @@
+name: Release Cat-Backup
+
+on:
+  workflow_dispatch: # 允许手动触发
+  push:
+    tags:
+      - 'v*' # 当推送 v 开头的标签时自动触发
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: '1.20' # 指定 Go 版本
+
+      - name: Build for Linux
+        run: |
+          GOOS=linux GOARCH=amd64 go build -o dist/cat-backup-linux-amd64 .
+          GOOS=linux GOARCH=arm64 go build -o dist/cat-backup-linux-arm64 .
+
+      - name: Build for Windows
+        run: |
+          GOOS=windows GOARCH=amd64 go build -o dist/cat-backup-windows-amd64.exe .
+          GOOS=windows GOARCH=386 go build -o dist/cat-backup-windows-386.exe .
+
+      - name: Build for macOS
+        run: |
+          GOOS=darwin GOARCH=amd64 go build -o dist/cat-backup-darwin-amd64 .
+          GOOS=darwin GOARCH=arm64 go build -o dist/cat-backup-darwin-arm64 .
+
+      - name: Package artifacts
+        run: |
+          cd dist
+          tar -czf cat-backup-linux-amd64.tar.gz cat-backup-linux-amd64
+          tar -czf cat-backup-linux-arm64.tar.gz cat-backup-linux-arm64
+          zip cat-backup-windows-amd64.zip cat-backup-windows-amd64.exe
+          zip cat-backup-windows-386.zip cat-backup-windows-386.exe
+          tar -czf cat-backup-darwin-amd64.tar.gz cat-backup-darwin-amd64
+          tar -czf cat-backup-darwin-arm64.tar.gz cat-backup-darwin-arm64
+          rm -f cat-backup-* # 清理未压缩的文件
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: cat-backup-binaries
+          path: dist/
+          retention-days: 5
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v3
+        with:
+          name: cat-backup-binaries
+          path: dist
+
+      - name: Create GitHub Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      - name: Upload Release Assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/cat-backup-linux-amd64.tar.gz
+          asset_name: cat-backup-linux-amd64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Release Assets (Linux ARM64)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/cat-backup-linux-arm64.tar.gz
+          asset_name: cat-backup-linux-arm64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Release Assets (Windows AMD64)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/cat-backup-windows-amd64.zip
+          asset_name: cat-backup-windows-amd64.zip
+          asset_content_type: application/zip
+
+      - name: Upload Release Assets (Windows 386)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/cat-backup-windows-386.zip
+          asset_name: cat-backup-windows-386.zip
+          asset_content_type: application/zip
+
+      - name: Upload Release Assets (macOS AMD64)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/cat-backup-darwin-amd64.tar.gz
+          asset_name: cat-backup-darwin-amd64.tar.gz
+          asset_content_type: application/gzip
+
+      - name: Upload Release Assets (macOS ARM64)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: dist/cat-backup-darwin-arm64.tar.gz
+          asset_name: cat-backup-darwin-arm64.tar.gz
+          asset_content_type: application/gzip
