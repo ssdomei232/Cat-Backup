@@ -1,4 +1,4 @@
-module git.mei.lv/mei/cat-backup
+module github.com/ssdomei232/Cat-Backup
 
 go 1.23.2
 
