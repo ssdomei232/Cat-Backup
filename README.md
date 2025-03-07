@@ -51,12 +51,14 @@ BACKUP_1_NAME=app_data
 BACKUP_1_SOURCE=/var/www/app/data
 BACKUP_1_REMOTE_PATH=/backups/app
 BACKUP_1_FREQUENCY=@daily
+BACKUP_2_MAX_BACKUPS=10
 
 # 第二个备份任务
 BACKUP_2_NAME=db_backup
 BACKUP_2_SOURCE=/opt/mysql/backups
 BACKUP_2_REMOTE_PATH=/backups/database
 BACKUP_2_FREQUENCY=0 2 * * *
+BACKUP_2_MAX_BACKUPS=10
 
 # SMTP 配置
 SMTP_HOST=smtp.example.com
@@ -103,6 +105,7 @@ go build -o cat-backup
 |`SOURCE`|需要备份的本地目录|
 |`REMOTE_PATH`|WebDAV 服务器上的存储路径|
 |`FREQUENCY`|备份频率（Cron 表达式）|
+|`MAX_BACKUPS`|最大备份数量|
 
 ### 可选配置
 

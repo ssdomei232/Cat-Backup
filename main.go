@@ -11,6 +11,7 @@ import (
 	"net/smtp"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -44,6 +45,7 @@ type BackupConfig struct {
 	RemotePath string
 	Frequency  string
 	Retries    int
+	MaxBackups int
 }
 
 func main() {
@@ -87,7 +89,7 @@ func main() {
 	c.Start()
 
 	log.Println(LogPrefixInfo + "Service started successfully")
-	select {} // Keep main goroutine alive
+	select {}
 }
 
 func loadConfig(envFile string) (*Config, error) {
@@ -102,12 +104,16 @@ func loadConfig(envFile string) (*Config, error) {
 	backups := make([]BackupConfig, backupCount)
 	for i := 0; i < backupCount; i++ {
 		prefix := fmt.Sprintf("BACKUP_%d_", i+1)
+		var maxBackups int
+		fmt.Sscan(envMap[prefix+"MAX_BACKUPS"], &maxBackups)
+
 		backups[i] = BackupConfig{
 			Name:       envMap[prefix+"NAME"],
 			Source:     envMap[prefix+"SOURCE"],
 			RemotePath: envMap[prefix+"REMOTE_PATH"],
 			Frequency:  envMap[prefix+"FREQUENCY"],
 			Retries:    3,
+			MaxBackups: maxBackups,
 		}
 	}
 
@@ -154,6 +160,9 @@ func validateConfig(config *Config) error {
 		if _, err := cron.ParseStandard(backup.Frequency); err != nil {
 			errs = append(errs, fmt.Sprintf("%s.FREQUENCY '%s' is invalid: %v",
 				prefix, backup.Frequency, err))
+		}
+		if backup.MaxBackups < 0 {
+			errs = append(errs, fmt.Sprintf("%s.MAX_BACKUPS must be >= 0", prefix))
 		}
 	}
 
@@ -216,6 +225,11 @@ func processBackup(backup BackupConfig, config *Config) error {
 
 		if err := uploadFile(client, tempPath, remotePath); err == nil {
 			log.Printf(LogPrefixInfo+"[%s] Upload successful", backup.Name)
+			if backup.MaxBackups > 0 {
+				if err := cleanupOldBackups(client, backup); err != nil {
+					log.Printf(LogPrefixWarn+"[%s] Cleanup failed: %v", backup.Name, err)
+				}
+			}
 			return nil
 		} else {
 			lastErr = err
@@ -226,6 +240,40 @@ func processBackup(backup BackupConfig, config *Config) error {
 		}
 	}
 	return fmt.Errorf("upload failed after %d attempts: %w", backup.Retries, lastErr)
+}
+
+func cleanupOldBackups(client *gowebdav.Client, backup BackupConfig) error {
+	files, err := client.ReadDir(backup.RemotePath)
+	if err != nil {
+		return fmt.Errorf("list directory failed: %w", err)
+	}
+
+	var backups []os.FileInfo
+	prefix := backup.Name + "-"
+	for _, f := range files {
+		name := f.Name()
+		if strings.HasPrefix(name, prefix) && strings.HasSuffix(name, ".tar.gz") {
+			backups = append(backups, f)
+		}
+	}
+
+	sort.Slice(backups, func(i, j int) bool {
+		return backups[i].ModTime().Before(backups[j].ModTime())
+	})
+
+	if removeCount := len(backups) - backup.MaxBackups; removeCount > 0 {
+		for i := 0; i < removeCount; i++ {
+			path := filepath.Join(backup.RemotePath, backups[i].Name())
+			if err := client.Remove(path); err != nil {
+				log.Printf(LogPrefixWarn+"[%s] Failed to remove %s: %v",
+					backup.Name, backups[i].Name(), err)
+				continue
+			}
+			log.Printf(LogPrefixInfo+"[%s] Removed old backup: %s",
+				backup.Name, backups[i].Name())
+		}
+	}
+	return nil
 }
 
 func createArchive(sourceDir string, targetPath string) error {
