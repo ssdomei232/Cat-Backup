@@ -46,7 +46,7 @@ jobs:
           rm -f cat-backup-* # 清理未压缩的文件
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4 # 使用 v4 版本
         with:
           name: cat-backup-binaries
           path: dist/
@@ -58,14 +58,14 @@ jobs:
 
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v3
+        uses: actions/download-artifact@v4 # 使用 v4 版本
         with:
           name: cat-backup-binaries
           path: dist
 
       - name: Create GitHub Release
         id: create_release
-        uses: actions/create-release@v1
+        uses: actions/create-release@v2 # 使用 v2 版本
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -74,8 +74,8 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Release Assets
-        uses: actions/upload-release-asset@v1
+      - name: Upload Release Assets (Linux AMD64)
+        uses: actions/upload-release-asset@v2 # 使用 v2 版本
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -85,7 +85,7 @@ jobs:
           asset_content_type: application/gzip
 
       - name: Upload Release Assets (Linux ARM64)
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v2 # 使用 v2 版本
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -95,7 +95,7 @@ jobs:
           asset_content_type: application/gzip
 
       - name: Upload Release Assets (Windows AMD64)
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v2 # 使用 v2 版本
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -105,7 +105,7 @@ jobs:
           asset_content_type: application/zip
 
       - name: Upload Release Assets (Windows 386)
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v2 # 使用 v2 版本
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -115,7 +115,7 @@ jobs:
           asset_content_type: application/zip
 
       - name: Upload Release Assets (macOS AMD64)
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v2 # 使用 v2 版本
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -125,7 +125,7 @@ jobs:
           asset_content_type: application/gzip
 
       - name: Upload Release Assets (macOS ARM64)
-        uses: actions/upload-release-asset@v1
+        uses: actions/upload-release-asset@v2 # 使用 v2 版本
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
