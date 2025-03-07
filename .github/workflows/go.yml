@@ -1,7 +1,7 @@
 name: Release Cat-Backup
 
 on:
-  workflow_dispatch: # 允许手动触发
+  workflow_dispatch:
   push:
     tags:
       - 'v*' # 当推送 v 开头的标签时自动触发
@@ -19,34 +19,24 @@ jobs:
         with:
           go-version: '1.20' # 指定 Go 版本
 
-      - name: Build for Linux
+      - name: Build and package
         run: |
-          GOOS=linux GOARCH=amd64 go build -o dist/cat-backup-linux-amd64 .
-          GOOS=linux GOARCH=arm64 go build -o dist/cat-backup-linux-arm64 .
-
-      - name: Build for Windows
-        run: |
-          GOOS=windows GOARCH=amd64 go build -o dist/cat-backup-windows-amd64.exe .
-          GOOS=windows GOARCH=386 go build -o dist/cat-backup-windows-386.exe .
-
-      - name: Build for macOS
-        run: |
-          GOOS=darwin GOARCH=amd64 go build -o dist/cat-backup-darwin-amd64 .
-          GOOS=darwin GOARCH=arm64 go build -o dist/cat-backup-darwin-arm64 .
-
-      - name: Package artifacts
-        run: |
-          cd dist
-          tar -czf cat-backup-linux-amd64.tar.gz cat-backup-linux-amd64
-          tar -czf cat-backup-linux-arm64.tar.gz cat-backup-linux-arm64
-          zip cat-backup-windows-amd64.zip cat-backup-windows-amd64.exe
-          zip cat-backup-windows-386.zip cat-backup-windows-386.exe
-          tar -czf cat-backup-darwin-amd64.tar.gz cat-backup-darwin-amd64
-          tar -czf cat-backup-darwin-arm64.tar.gz cat-backup-darwin-arm64
-          rm -f cat-backup-* # 清理未压缩的文件
+          mkdir -p dist
+          for os in linux windows darwin; do
+            for arch in amd64 arm64 386; do
+              if [[ $os == "windows" && $arch == "arm64" ]]; then continue; fi # Windows不支持ARM64
+              GOOS=$os GOARCH=$arch go build -o dist/cat-backup-$os-$arch${os:+.${os}}
+              if [[ $os == "windows" ]]; then
+                zip -j dist/cat-backup-$os-$arch.zip dist/cat-backup-$os-$arch.exe
+              else
+                tar -czf dist/cat-backup-$os-$arch.tar.gz -C dist cat-backup-$os-$arch
+              fi
+              rm -f dist/cat-backup-$os-$arch${os:+.${os}} # 清理未压缩的文件
+            done
+          done
 
       - name: Upload artifacts
-        uses: actions/upload-artifact@v4 # 使用 v4 版本
+        uses: actions/upload-artifact@v4
         with:
           name: cat-backup-binaries
           path: dist/
@@ -58,14 +48,14 @@ jobs:
 
     steps:
       - name: Download artifacts
-        uses: actions/download-artifact@v4 # 使用 v4 版本
+        uses: actions/download-artifact@v4
         with:
           name: cat-backup-binaries
-          path: dist
+          path: dist/
 
       - name: Create GitHub Release
         id: create_release
-        uses: actions/create-release@v2 # 使用 v2 版本
+        uses: actions/create-release@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -74,62 +64,13 @@ jobs:
           draft: false
           prerelease: false
 
-      - name: Upload Release Assets (Linux AMD64)
-        uses: actions/upload-release-asset@v2 # 使用 v2 版本
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/cat-backup-linux-amd64.tar.gz
-          asset_name: cat-backup-linux-amd64.tar.gz
-          asset_content_type: application/gzip
-
-      - name: Upload Release Assets (Linux ARM64)
-        uses: actions/upload-release-asset@v2 # 使用 v2 版本
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/cat-backup-linux-arm64.tar.gz
-          asset_name: cat-backup-linux-arm64.tar.gz
-          asset_content_type: application/gzip
-
-      - name: Upload Release Assets (Windows AMD64)
-        uses: actions/upload-release-asset@v2 # 使用 v2 版本
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/cat-backup-windows-amd64.zip
-          asset_name: cat-backup-windows-amd64.zip
-          asset_content_type: application/zip
-
-      - name: Upload Release Assets (Windows 386)
-        uses: actions/upload-release-asset@v2 # 使用 v2 版本
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/cat-backup-windows-386.zip
-          asset_name: cat-backup-windows-386.zip
-          asset_content_type: application/zip
-
-      - name: Upload Release Assets (macOS AMD64)
-        uses: actions/upload-release-asset@v2 # 使用 v2 版本
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/cat-backup-darwin-amd64.tar.gz
-          asset_name: cat-backup-darwin-amd64.tar.gz
-          asset_content_type: application/gzip
-
-      - name: Upload Release Assets (macOS ARM64)
-        uses: actions/upload-release-asset@v2 # 使用 v2 版本
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: dist/cat-backup-darwin-arm64.tar.gz
-          asset_name: cat-backup-darwin-arm64.tar.gz
-          asset_content_type: application/gzip
+      - name: Upload all assets
+        run: |
+          for file in $(find dist -type f); do
+            asset_name=$(basename "$file")
+            curl -X POST \
+              -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+              -H "Content-Type: $(file -b --mime-type "$file")" \
+              --data-binary @"$file" \
+              "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ steps.create_release.outputs.id }}/assets?name=$asset_name"
+          done
