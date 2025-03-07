@@ -127,7 +127,8 @@ go build -o cat-backup
 2023/10/15 00:02:15 [INFO] [app_data] Uploading (attempt 1/3)... 
 2023/10/15 00:02:17 [WARN] [app_data] Upload failed: 404 Not Found (retrying in 1s) 
 2023/10/15 00:02:18 [INFO] [app_data] Uploading (attempt 2/3)... 
-2023/10/15 00:02:19 [INFO] [app_data] Upload successful 2023/10/15 00:02:19 [INFO] [app_data] Backup completed in 2m19s
+2023/10/15 00:02:19 [INFO] [app_data] Upload successful 
+2023/10/15 00:02:19 [INFO] [app_data] Backup completed in 2m19s
 ```
 
 ---
