@@ -35,6 +35,8 @@ jobs:
             output_name="$output_name.exe"
           fi
           go build -o $output_name .
+          # 确保文件生成成功
+          ls -l $output_name
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
@@ -49,6 +51,7 @@ jobs:
           matrix_json=$(echo '${{ toJson(matrix) }}' | tr -d '\n' | sed 's/  / /g')
           # 输出到 GITHUB_OUTPUT
           echo "matrix=$matrix_json" >> $GITHUB_OUTPUT
+
   release:
     runs-on: ubuntu-latest
     needs: build
@@ -75,6 +78,6 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./artifacts/${{ fromJson(needs.build.outputs.build_matrix).goos }}-${{ fromJson(needs.build.outputs.build_matrix).goarch }}/myapp-${{ fromJson(needs.build.outputs.build_matrix).goos }}-${{ fromJson(needs.build.outputs.build_matrix).goarch }}*
-          asset_name: myapp-${{ fromJson(needs.build.outputs.build_matrix).goos }}-${{ fromJson(needs.build.outputs.build_matrix).goarch }}*
+          asset_path: ./artifacts/${{ matrix.goos }}-${{ matrix.goarch }}/myapp-${{ matrix.goos }}-${{ matrix.goarch }}*
+          asset_name: myapp-${{ matrix.goos }}-${{ matrix.goarch }}*
           asset_content_type: application/octet-stream
