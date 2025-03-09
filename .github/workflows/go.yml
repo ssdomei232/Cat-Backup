@@ -57,4 +57,4 @@ jobs:
           if [ "${{ matrix.goos }}" == "windows" ]; then
             output_name="$output_name.exe"
           fi
-          rclone copy $output_name webdav:/path/to/upload/
+          rclone copy $output_name webdav:/share/ssd-quick/catbackup-released
