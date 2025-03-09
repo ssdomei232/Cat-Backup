@@ -79,7 +79,7 @@ go build -o cat-backup
 
 ```bash
 # -backup 参数为手动触发备份项，可选
-./cat-backup -c ./ini [-backup "app_data"]
+./cat-backup -c ./.env [-backup "app_data"]
 ```
 
 ---
