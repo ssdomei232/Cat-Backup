@@ -78,7 +78,8 @@ go build -o cat-backup
 ### 4. 运行
 
 ```bash
-go build -o cat-backup 
+# -backup 参数为手动触发备份项，可选
+./cat-backup -c ./ini [-backup "app_data"]
 ```
 
 ---

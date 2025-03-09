@@ -50,6 +50,7 @@ type BackupConfig struct {
 
 func main() {
 	envFile := flag.String("c", ".env", "Path to .env file")
+	manualBackup := flag.String("backup", "", "Manual trigger backup by name") // 新增参数
 	flag.Parse()
 
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
@@ -62,6 +63,30 @@ func main() {
 
 	if err := validateConfig(config); err != nil {
 		log.Fatalf(LogPrefixError+"Config validation failed: %v", err)
+	}
+
+	// 手动触发逻辑
+	if *manualBackup != "" {
+		var found bool
+		for _, backup := range config.Backups {
+			if backup.Name == *manualBackup {
+				found = true
+				startTime := time.Now()
+				log.Printf(LogPrefixInfo+"[%s] Manual backup started", backup.Name)
+				if err := processBackup(backup, config); err != nil {
+					log.Printf(LogPrefixError+"[%s] Manual backup failed: %v", backup.Name, err)
+					sendAlert(config, backup.Name, err)
+					os.Exit(1)
+				}
+				log.Printf(LogPrefixInfo+"[%s] Manual backup completed in %s",
+					backup.Name, time.Since(startTime).Round(time.Second))
+				os.Exit(0)
+			}
+		}
+		if !found {
+			log.Printf(LogPrefixError+"Backup name '%s' not found in config", *manualBackup)
+			os.Exit(1)
+		}
 	}
 
 	c := cron.New()
