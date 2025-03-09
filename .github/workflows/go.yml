@@ -81,3 +81,13 @@ jobs:
           asset_path: ./artifacts/${{ matrix.goos }}-${{ matrix.goarch }}/myapp-${{ matrix.goos }}-${{ matrix.goarch }}*
           asset_name: myapp-${{ matrix.goos }}-${{ matrix.goarch }}*
           asset_content_type: application/octet-stream
+
+      - name: Upload to WebDAV
+        run: |
+          # 安装 webdav-client
+          npm install -g webdav-cli
+
+          # 上传构建文件到 WebDAV 服务器
+          for file in ./artifacts/*/*; do
+            webdav upload --url ${{ secrets.WEBDAV_URL }} --username ${{ secrets.WEBDAV_USERNAME }} --password ${{ secrets.WEBDAV_PASSWORD }} --remote-path /path/to/upload/ --local-path $file
+          done
