@@ -36,20 +36,25 @@ jobs:
           # 确保文件生成成功
           ls -l $output_name
 
-      - name: Upload to WebDAV
+      - name: Install rclone
         run: |
-          # 安装 webdav-client
-          npm install -g webdav-cli
+          curl -O https://downloads.rclone.org/rclone-current-linux-amd64.deb
+          sudo dpkg -i rclone-current-linux-amd64.deb
 
-          # 上传构建文件到 WebDAV 服务器
+      - name: Configure rclone
+        run: |
+          mkdir -p ~/.config/rclone
+          echo "[webdav]
+          type = webdav
+          url = ${{ secrets.WEBDAV_URL }}
+          vendor = other
+          user = ${{ secrets.WEBDAV_USERNAME }}
+          pass = ${{ secrets.WEBDAV_PASSWORD }}" > ~/.config/rclone/rclone.conf
+
+      - name: Upload to WebDAV using rclone
+        run: |
           output_name="catbackup-${{ matrix.goos }}-${{ matrix.goarch }}"
           if [ "${{ matrix.goos }}" == "windows" ]; then
             output_name="$output_name.exe"
           fi
-
-          webdav upload \
-            --url ${{ secrets.WEBDAV_URL }} \
-            --username ${{ secrets.WEBDAV_USERNAME }} \
-            --password ${{ secrets.WEBDAV_PASSWORD }} \
-            --remote-path /path/to/upload/$output_name \
-            --local-path $output_name
+          rclone copy $output_name webdav:/path/to/upload/
